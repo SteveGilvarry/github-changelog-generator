@@ -15,6 +15,7 @@ module GitHubChangelogGenerator
 
     def initialize(options = {})
       @options = options || {}
+      
       @user = @options[:user]
       @project = @options[:project]
       @github_token = fetch_github_token
