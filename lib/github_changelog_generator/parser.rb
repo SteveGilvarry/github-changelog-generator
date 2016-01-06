@@ -7,22 +7,16 @@ module GitHubChangelogGenerator
   class Parser
     # parse options with optparse
     def self.parse_options
-      options = get_default_options
+      options = default_options
 
-      parser_file = ParserFile.new options
-      parser_file.parse!
+      ParserFile.new(options).parse!
 
       parser = setup_parser(options)
       parser.parse!
 
-      if options[:user].nil? || options[:project].nil?
-        detect_user_and_project(options, ARGV[0], ARGV[1])
-      end
+      user_and_project_from_git(options)
 
-      if !options[:user] || !options[:project]
-        puts parser.banner
-        exit
-      end
+      abort(parser.banner) unless options[:user] && options[:project]
 
       print_options(options)
 
@@ -149,6 +143,9 @@ module GitHubChangelogGenerator
         opts.on("--future-release [RELEASE-VERSION]", "Put the unreleased changes in the specified release number.") do |future_release|
           options[:future_release] = future_release
         end
+        opts.on("--release-branch [RELEASE-BRANCH]", "Limit pull requests to the release branch, such as master or release") do |release_branch|
+          options[:release_branch] = release_branch
+        end
         opts.on("--[no-]verbose", "Run verbosely. Default is true") do |v|
           options[:verbose] = v
         end
@@ -165,8 +162,8 @@ module GitHubChangelogGenerator
     end
 
     # just get default options
-    def self.get_default_options
-      options = {
+    def self.default_options
+      {
         tag1: nil,
         tag2: nil,
         date_format: "%Y-%m-%d",
@@ -194,21 +191,25 @@ module GitHubChangelogGenerator
         enhancement_prefix: "**Implemented enhancements:**",
         git_remote: "origin"
       }
+    end
 
-      options
+    def self.user_and_project_from_git(options)
+      if options[:user].nil? || options[:project].nil?
+        detect_user_and_project(options, ARGV[0], ARGV[1])
+      end
     end
 
     # Detects user and project from git
     def self.detect_user_and_project(options, arg0 = nil, arg1 = nil)
       options[:user], options[:project] = user_project_from_option(arg0, arg1, options[:github_site])
-      if !options[:user] || !options[:project]
-        if ENV["RUBYLIB"] =~ /ruby-debug-ide/
-          options[:user] = "skywinder"
-          options[:project] = "changelog_test"
-        else
-          remote = `git config --get remote.#{options[:git_remote]}.url`
-          options[:user], options[:project] = user_project_from_remote(remote)
-        end
+      return if options[:user] && options[:project]
+
+      if ENV["RUBYLIB"] =~ /ruby-debug-ide/
+        options[:user] = "skywinder"
+        options[:project] = "changelog_test"
+      else
+        remote = `git config --get remote.#{options[:git_remote]}.url`
+        options[:user], options[:project] = user_project_from_remote(remote)
       end
     end
 
